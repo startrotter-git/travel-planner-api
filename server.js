@@ -8,6 +8,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 // CORS設定 - すべてのオリジンを許可
 app.use(cors({
@@ -29,6 +30,42 @@ app.get('/', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Claude API: メッセージ生成
+app.post('/api/claude/messages', async (req, res) => {
+  try {
+    const { model, max_tokens, temperature, messages } = req.body;
+
+    if (!messages) {
+      return res.status(400).json({ error: 'Messages are required' });
+    }
+
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: model || 'claude-sonnet-4-20250514',
+        max_tokens: max_tokens || 6000,
+        temperature: temperature || 0.7,
+        messages
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      }
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Claude API error:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to generate response',
+      details: error.response?.data || error.message 
+    });
+  }
 });
 
 // Places API: テキスト検索
